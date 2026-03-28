@@ -38,8 +38,8 @@ ALLOWED_ORIGIN     = os.environ.get("ALLOWED_ORIGIN", "*")
 GROQ_BASE_URL      = "https://api.groq.com/openai/v1"
 SAMBANOVA_BASE_URL = "https://api.sambanova.ai/v1"
 
-GROQ_MODEL         = "llama-3.3-70b-versatile"
-SAMBANOVA_MODEL    = "Meta-Llama-3.3-405B-Instruct"
+GROQ_MODEL         = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+SAMBANOVA_MODEL    = os.environ.get("SAMBANOVA_MODEL", "Meta-Llama-3.1-405B-Instruct")
 
 # Timeout agressivo: SambaNova pode ser mais lento em inferência
 REQUEST_TIMEOUT    = 60.0
@@ -154,6 +154,8 @@ async def health():
         "groq": bool(GROQ_API_KEY),
         "sambanova": bool(SAMBANOVA_API_KEY),
         "token_set": bool(WORKER_TOKEN),
+        "groq_model": GROQ_MODEL,
+        "sambanova_model": SAMBANOVA_MODEL,
     }
 
 
@@ -286,7 +288,7 @@ async def search(request: SearchRequest):
 
     # 1. DuckDuckGo HTML scrape
     try:
-        ddg_url = f"https://html.duckduckgo.com/html/?q={httpx.URL('', params={'q': request.query}).params}"
+        ddg_url = "https://html.duckduckgo.com/html/?" + str(httpx.URL("", params={"q": request.query}).params)
         resp = await http_client.get(
             ddg_url,
             headers={"User-Agent": "Mozilla/5.0 (compatible; WorkerHub/1.0)"},
@@ -359,6 +361,7 @@ async def search(request: SearchRequest):
                     "srsearch": request.query,
                     "srlimit": 5, "format": "json",
                 },
+                headers={"User-Agent": "WorkerHub/1.0 (https://github.com/armandoerthalcarvalho/worker-hub)"},
             )
             data = resp.json()
             for x in data["query"]["search"]:
