@@ -47,6 +47,19 @@ REQUEST_TIMEOUT    = 60.0
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 log = logging.getLogger("worker")
 
+def _masked(key: str) -> str:
+    if not key:
+        return "(empty)"
+    if len(key) < 12:
+        return f"***{key[-3:]} (len={len(key)})"
+    return f"{key[:6]}...{key[-4:]} (len={len(key)})"
+
+log.info("GROQ_API_KEY      = %s", _masked(GROQ_API_KEY))
+log.info("SAMBANOVA_API_KEY = %s", _masked(SAMBANOVA_API_KEY))
+log.info("WORKER_TOKEN      = %s", _masked(WORKER_TOKEN))
+log.info("SAMBANOVA_MODEL   = %s", SAMBANOVA_MODEL)
+log.info("GROQ_MODEL        = %s", GROQ_MODEL)
+
 
 # ---------------------------------------------------------------------------
 # HTTP client singleton
