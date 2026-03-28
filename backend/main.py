@@ -133,7 +133,7 @@ class ChatRequest(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=500)
-    count: int = Field(default=10, ge=1, le=30)
+    count: int = Field(default=10, ge=1, le=50)
 
 
 class SearchResult(BaseModel):
@@ -295,9 +295,83 @@ async def chat(request: ChatRequest):
 # ---------------------------------------------------------------------------
 @app.post("/api/search")
 async def search(request: SearchRequest):
-    results: list[dict] = []
+    import re as _re
+    from html.parser import HTMLParser
 
-    # 1. DuckDuckGo HTML scrape
+    class DDGParser(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self._in_title = False
+            self._in_snippet = False
+            self._in_url = False
+            self._current: dict = {}
+            self.items: list[dict] = []
+            # hidden form fields for pagination
+            self.next_params: dict = {}
+
+        def handle_starttag(self, tag, attrs):
+            attrs_d = dict(attrs)
+            cls = attrs_d.get("class", "")
+            if "result__title" in cls:
+                self._in_title = True; self._current = {}
+            elif "result__snippet" in cls:
+                self._in_snippet = True
+            elif "result__url" in cls:
+                self._in_url = True
+            # capture hidden form fields for page 2
+            if tag == "input" and attrs_d.get("type") == "hidden":
+                name = attrs_d.get("name", "")
+                value = attrs_d.get("value", "")
+                if name in ("s", "nextParams", "vqd", "v", "o", "dc", "api", "kl"):
+                    self.next_params[name] = value
+
+        def handle_endtag(self, tag):
+            if self._in_title and tag in ("h2", "a"):
+                self._in_title = False
+            if self._in_snippet and tag == "a":
+                self._in_snippet = False
+                if self._current.get("title") and self._current.get("snippet"):
+                    self.items.append(dict(self._current))
+            if self._in_url and tag == "a":
+                self._in_url = False
+
+        def handle_data(self, data):
+            data = data.strip()
+            if not data:
+                return
+            if self._in_title:
+                self._current["title"] = data
+            elif self._in_snippet:
+                self._current.setdefault("snippet", "")
+                self._current["snippet"] += data
+            elif self._in_url:
+                self._current["url"] = "https://" + data.strip()
+                self._current["source"] = data.strip().split("/")[0]
+
+    def _parse_ddg_items(parser: DDGParser, existing_urls: set, limit: int, id_offset: int) -> list[dict]:
+        out = []
+        for item in parser.items:
+            if len(out) + id_offset >= limit:
+                break
+            url = item.get("url", "#")
+            if url in existing_urls:
+                continue
+            existing_urls.add(url)
+            out.append({
+                "id": id_offset + len(out),
+                "title": item.get("title", ""),
+                "snippet": item.get("snippet", ""),
+                "url": url,
+                "source": item.get("source", "unknown"),
+            })
+        return out
+
+    results: list[dict] = []
+    seen_urls: set = set()
+    need = request.count + 5  # fetch extra so frontend has room to filter
+
+    # 1. DuckDuckGo page 1
+    page1_parser = DDGParser()
     try:
         ddg_url = "https://html.duckduckgo.com/html/?" + str(httpx.URL("", params={"q": request.query}).params)
         resp = await http_client.get(
@@ -305,88 +379,59 @@ async def search(request: SearchRequest):
             headers={"User-Agent": "Mozilla/5.0 (compatible; WorkerHub/1.0)"},
             follow_redirects=True,
         )
-        from html.parser import HTMLParser
-
-        class DDGParser(HTMLParser):
-            def __init__(self):
-                super().__init__()
-                self._in_title = False
-                self._in_snippet = False
-                self._in_url = False
-                self._current: dict = {}
-                self.items: list[dict] = []
-
-            def handle_starttag(self, tag, attrs):
-                attrs_d = dict(attrs)
-                cls = attrs_d.get("class", "")
-                if "result__title" in cls:
-                    self._in_title = True; self._current = {}
-                elif "result__snippet" in cls:
-                    self._in_snippet = True
-                elif "result__url" in cls:
-                    self._in_url = True
-
-            def handle_endtag(self, tag):
-                if self._in_title and tag in ("h2", "a"):
-                    self._in_title = False
-                if self._in_snippet and tag == "a":
-                    self._in_snippet = False
-                    if self._current.get("title") and self._current.get("snippet"):
-                        self.items.append(dict(self._current))
-                if self._in_url and tag == "a":
-                    self._in_url = False
-
-            def handle_data(self, data):
-                data = data.strip()
-                if not data:
-                    return
-                if self._in_title:
-                    self._current["title"] = data
-                elif self._in_snippet:
-                    self._current.setdefault("snippet", "")
-                    self._current["snippet"] += data
-                elif self._in_url:
-                    self._current["url"] = "https://" + data.strip()
-                    self._current["source"] = data.strip().split("/")[0]
-
-        parser = DDGParser()
-        parser.feed(resp.text)
-        for i, item in enumerate(parser.items[: request.count + 5]):
-            results.append({
-                "id": i,
-                "title": item.get("title", ""),
-                "snippet": item.get("snippet", ""),
-                "url": item.get("url", "#"),
-                "source": item.get("source", "unknown"),
-            })
+        page1_parser.feed(resp.text)
+        results.extend(_parse_ddg_items(page1_parser, seen_urls, need, 0))
+        log.info("DDG page 1: %d results", len(results))
     except Exception as exc:
-        log.warning("DuckDuckGo scrape falhou: %s", exc)
+        log.warning("DuckDuckGo página 1 falhou: %s", exc)
 
-    # 2. Fallback Wikipedia EN
-    if len(results) < 3:
+    # 2. DuckDuckGo page 2 (if we still need more)
+    if len(results) < need and page1_parser.next_params.get("vqd"):
         try:
-            resp = await http_client.get(
+            form = {"q": request.query, **page1_parser.next_params}
+            resp2 = await http_client.post(
+                "https://html.duckduckgo.com/html/",
+                data=form,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; WorkerHub/1.0)"},
+                follow_redirects=True,
+            )
+            page2_parser = DDGParser()
+            page2_parser.feed(resp2.text)
+            results.extend(_parse_ddg_items(page2_parser, seen_urls, need, len(results)))
+            log.info("DDG page 2: %d total results", len(results))
+        except Exception as exc:
+            log.warning("DuckDuckGo página 2 falhou: %s", exc)
+
+    # 3. Wikipedia EN — supplement when DDG < requested count
+    if len(results) < request.count:
+        wiki_need = min(request.count - len(results), 20)
+        try:
+            resp_wiki = await http_client.get(
                 "https://en.wikipedia.org/w/api.php",
                 params={
                     "action": "query", "list": "search",
                     "srsearch": request.query,
-                    "srlimit": 5, "format": "json",
+                    "srlimit": wiki_need, "format": "json",
                 },
                 headers={"User-Agent": "WorkerHub/1.0 (https://github.com/armandoerthalcarvalho/worker-hub)"},
             )
-            data = resp.json()
+            data = resp_wiki.json()
             for x in data["query"]["search"]:
                 if len(results) >= request.count:
                     break
-                import re
-                snippet = re.sub(r"<[^>]+>", "", x["snippet"])
+                url = f"https://en.wikipedia.org/wiki/{x['title'].replace(' ', '_')}"
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                snippet = _re.sub(r"<[^>]+>", "", x["snippet"])
                 results.append({
                     "id": len(results),
                     "title": x["title"],
                     "snippet": snippet,
-                    "url": f"https://en.wikipedia.org/wiki/{x['title'].replace(' ', '_')}",
+                    "url": url,
                     "source": "wikipedia.org",
                 })
+            log.info("Wikipedia aportou %d resultados extras", len(results))
         except Exception as exc:
             log.warning("Wikipedia EN falhou: %s", exc)
 
