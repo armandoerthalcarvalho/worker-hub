@@ -1,8 +1,10 @@
 ﻿// ==========================================
 // STATE
 // ==========================================
-var workerToken   = localStorage.getItem('worker_token') || '';
-var backendUrl    = localStorage.getItem('worker_backend_url') || '';
+var BACKEND_URL   = 'https://worker-hub-production.up.railway.app';
+var BACKEND_TOKEN = 'c05f9c836aaee26e799a846e15734f90889ca03b8ad';
+var workerToken   = localStorage.getItem('worker_token') || BACKEND_TOKEN;
+var backendUrl    = localStorage.getItem('worker_backend_url') || BACKEND_URL;
 var searchMode = 'ai';
 var searchTypes = ['web'];
 var searchQty = 5;
@@ -42,7 +44,7 @@ async function workerChat(messages, system, temp, max, tier) {
   if (max       === undefined) max    = 2048;
   if (tier      === undefined) tier   = 'normal';
 
-  if (!workerToken || !backendUrl) { openModal('api'); throw new Error('Backend not configured'); }
+  if (!workerToken || !backendUrl) { workerToken = BACKEND_TOKEN; backendUrl = BACKEND_URL; }
 
   var res = await fetch(backendUrl.replace(/\/$/, '') + '/api/chat', {
     method: 'POST',
@@ -76,7 +78,7 @@ async function groqChat(messages, system, temp, max) {
 
 // Search via backend proxy (replaces allorigins.win)
 async function backendSearch(query, count) {
-  if (!workerToken || !backendUrl) { throw new Error('Backend not configured'); }
+  if (!workerToken || !backendUrl) { workerToken = BACKEND_TOKEN; backendUrl = BACKEND_URL; }
   var res = await fetch(backendUrl.replace(/\/$/, '') + '/api/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Worker-Token': workerToken },
@@ -107,17 +109,15 @@ function openModal(type) {
   if (type === 'api') {
     box.innerHTML = `
       <div class="modal-title">⚙️ Settings</div>
-      <div class="modal-sub">Connect to your <strong>Worker Hub backend</strong> deployed on Railway. The backend holds your API keys — nothing is stored here except an access token.</div>
-      <div class="modal-label">Backend URL</div>
-      <input type="url" class="modal-input" id="backendUrlInput" placeholder="https://worker-hub.up.railway.app" value="${backendUrl}">
-      <div class="modal-label">Worker Token</div>
-      <input type="password" class="modal-input" id="workerTokenInput" placeholder="your-secret-token" value="${workerToken}">
+      <div class="modal-sub">Worker Hub is pre-configured and ready to use. Backend connection is handled automatically.</div>
+      <div class="modal-label">Backend</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text2);padding:8px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);word-break:break-all">${BACKEND_URL}</div>
+      <div class="modal-label" style="margin-top:12px">Status</div>
+      <div id="settingsStatus" style="font-family:var(--mono);font-size:10px;color:var(--text2);padding:8px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)">Click Test to check connection</div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-blue" onclick="testBackendConnection()">🔌 Test</button>
-        <button class="btn btn-primary" onclick="saveSettings()">✓ Save</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+        <button class="btn btn-blue" onclick="testBackendConnection()">🔌 Test Connection</button>
       </div>`;
-    document.getElementById('workerTokenInput').addEventListener('keydown', function(e){ if(e.key==='Enter') saveSettings(); });
   } else if (type === 'customtool') {
     box.innerHTML = `
       <div class="modal-title">🔧 New Tool</div>
@@ -153,23 +153,9 @@ function openModal(type) {
 
 function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 
-function saveSettings() {
-  var url   = document.getElementById('backendUrlInput').value.trim().replace(/\/$/, '');
-  var token = document.getElementById('workerTokenInput').value.trim();
-  if (!url || !token) { toast('URL and token are required', '⚠️'); return; }
-  backendUrl   = url;
-  workerToken  = token;
-  localStorage.setItem('worker_backend_url', url);
-  localStorage.setItem('worker_token', token);
-  closeModal();
-  updateApiBadge();
-  toast('Settings saved ✓');
-}
-
 async function testBackendConnection() {
-  var url   = document.getElementById('backendUrlInput').value.trim().replace(/\/$/, '');
-  var token = document.getElementById('workerTokenInput').value.trim();
-  if (!url || !token) { toast('Fill in URL and token first', '⚠️'); return; }
+  var url   = backendUrl || BACKEND_URL;
+  var statusEl = document.getElementById('settingsStatus');
   var btn = document.querySelector('#modalBox .btn-blue');
   btn.disabled = true; btn.textContent = '⏳ Testing...';
   try {
@@ -180,14 +166,20 @@ async function testBackendConnection() {
       if (data.groq)      info.push('Groq ✓');
       if (data.sambanova) info.push('SambaNova ✓');
       if (!data.token_set) info.push('⚠️ WORKER_TOKEN not set on server');
+      var msg = '✅ Connected · ' + info.join(' · ');
+      if (statusEl) statusEl.textContent = msg;
       toast('Connected! ' + info.join(' · '), '🔌');
     } else {
-      toast('Backend reachable but status: ' + JSON.stringify(data), '⚠️');
+      var msg2 = '⚠️ Status: ' + JSON.stringify(data);
+      if (statusEl) statusEl.textContent = msg2;
+      toast(msg2, '⚠️');
     }
   } catch(e) {
+    var msg3 = '❌ ' + e.message;
+    if (statusEl) statusEl.textContent = msg3;
     toast('Connection failed: ' + e.message, '⚠️');
   } finally {
-    btn.disabled = false; btn.textContent = '🔌 Test';
+    btn.disabled = false; btn.textContent = '🔌 Test Connection';
   }
 }
 
@@ -292,8 +284,6 @@ async function fetchSearchResults(query, count) {
 async function runSearch() {
   var query = document.getElementById('searchQuery').value.trim();
   if (!query) return;
-  if (!workerToken || !backendUrl) { openModal('api'); return; }
-
   var btn=document.getElementById('searchBtn');
   btn.disabled=true; btn.innerHTML='⏳ Searching...';
   selectedIndices.clear();
@@ -1052,7 +1042,7 @@ if(savedChat){
   try{chatHistory=JSON.parse(savedChat);}catch(e){}
 }
 
-if(!workerToken||!backendUrl) setTimeout(function(){openModal('api');},800);
+// Backend pre-configured — no setup required
 
 // ==========================================
 // PRODUCTIVITY STATE
