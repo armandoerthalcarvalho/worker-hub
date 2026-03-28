@@ -26,7 +26,7 @@ if (isLight) document.body.classList.add('light');
 // BACKEND API
 // ==========================================
 
-// Tool IDs that use the deep tier (SambaNova 405b)
+// Tool IDs that use the deep tier (SambaNova DeepSeek V3)
 var DEEP_TOOL_IDS = ['code', 'research', 'data', 'prompt', 'sql', 'security', 'math'];
 
 function getTier() {
@@ -216,7 +216,7 @@ function updateApiBadge() {
     dot.style.background = 'var(--green)';
     status.textContent = 'CONNECTED';
     // Show active tier model in pill
-    var tierLabel = getTier() === 'deep' ? '405b · deep' : '70b · normal';
+    var tierLabel = getTier() === 'deep' ? 'DeepSeek V3 · deep' : '70b · normal';
     pill.textContent = tierLabel;
   } else {
     badge.classList.remove('connected');
@@ -784,7 +784,7 @@ function addMessage(role,content,tool,meta) {
   if(role==='assistant'&&meta&&meta.provider){
     var pColor=meta.provider==='sambanova'?'var(--purple)':'var(--blue)';
     var pLabel=meta.provider==='sambanova'
-      ? (meta.fallback?'⚡ Groq 70b (fallback)':'🔮 SambaNova 405b')
+      ? (meta.fallback?'⚡ Groq 70b (fallback)':'🔮 SambaNova DeepSeek V3')
       : (meta.fallback?'⚡ Groq 70b (fallback)':'⚡ Groq 70b');
     providerBadge='<span style="font-family:var(--mono);font-size:9px;color:'+pColor+';opacity:0.8">'+pLabel+'</span>';
   }

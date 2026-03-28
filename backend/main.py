@@ -4,7 +4,7 @@ Worker Hub — Backend API
 Proxy seguro entre o frontend (GitHub Pages / Netlify) e os provedores de IA.
 
 Tier "normal"  → Groq          (llama-3.3-70b-versatile)
-Tier "deep"    → SambaNova     (Meta-Llama-3.3-405B-Instruct)
+Tier "deep"    → SambaNova     (DeepSeek-V3-0324)
                    429 / erro  → fallback automático para Groq
 
 Variáveis de ambiente necessárias:
