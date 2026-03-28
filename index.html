@@ -1,0 +1,494 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🛠️ Worker — Intelligent Research Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&family=Space+Grotesk:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <span class="logo-icon">⚙️</span>
+    W<span>orker</span>
+  </div>
+  <div class="header-right">
+    <button class="hbtn" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">☀️ Theme</button>
+    <button class="hbtn" onclick="openCmd()" title="Ctrl+K">⌘ Commands</button>
+    <div class="hbtn notif-bell" onclick="toggleNotifPanel()" id="notifBell" title="Notifications">
+      🔔
+      <span class="notif-bell-count" id="notifBellCount" style="display:none">0</span>
+    </div>
+    <div class="hbtn api-badge" id="apiBadge" onclick="openModal('api')">
+      <div class="dot" id="apiDot"></div>
+      <span id="apiStatus">NO BACKEND</span>
+    </div>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('search')" id="tab-search">
+    <span>🔍</span> Research Hub
+    <span class="tab-badge">AI</span>
+  </div>
+  <div class="tab" onclick="switchTab('chat')" id="tab-chat">
+    <span>💬</span> AI Chat
+    <span class="tab-badge" style="background:rgba(74,250,138,0.1);color:var(--green)">TOOLS</span>
+  </div>
+  <div class="tab" onclick="switchTab('productivity')" id="tab-productivity">
+    <span>📅</span> Productivity
+    <span class="tab-badge" style="background:rgba(91,200,255,0.1);color:var(--blue)">NEW</span>
+  </div>
+</div>
+
+<!-- ======================== APP ======================== -->
+<div class="app">
+
+<!-- ========== SEARCH PANEL ========== -->
+<div class="panel active" id="panel-search">
+
+  <div class="search-top">
+    <div class="search-bar-wrapper">
+      <div class="search-input-group">
+        <span class="search-prefix">$</span>
+        <input id="searchQuery" type="text" placeholder="Search articles, news, technology, research..." autocomplete="off" onkeydown="if(event.key==='Enter')runSearch()">
+      </div>
+      <button class="btn btn-primary" onclick="runSearch()" id="searchBtn">⚡ Search</button>
+    </div>
+    <div class="search-options">
+      <span class="option-label">Mode</span>
+      <div class="chip active" id="chip-ai" onclick="setChip('ai')">AI Filter</div>
+      <div class="chip" id="chip-all" onclick="setChip('all')">All</div>
+      <div class="chip" id="chip-deep" onclick="setChip('deep')">Deep</div>
+      <div class="sep"></div>
+      <span class="option-label">Type</span>
+      <div class="chip active" id="chip-web" onclick="toggleType('web')">Web</div>
+      <div class="chip" id="chip-news" onclick="toggleType('news')">News</div>
+      <div class="chip" id="chip-academic" onclick="toggleType('academic')">Academic</div>
+      <div class="sep"></div>
+      <span class="option-label">Qty</span>
+      <div class="chip active" id="chip-5" onclick="setQty(5)">5</div>
+      <div class="chip" id="chip-10" onclick="setQty(10)">10</div>
+      <div class="chip" id="chip-20" onclick="setQty(20)">20</div>
+    </div>
+  </div>
+
+  <div class="search-body">
+
+    <!-- SIDEBAR -->
+    <div class="search-sidebar">
+
+      <!-- HISTORY -->
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          History
+          <span class="count" id="historyCount">0</span>
+        </div>
+        <div id="historyList"></div>
+      </div>
+
+      <!-- RESULTS -->
+      <div class="sidebar-section" style="flex:1">
+        <div class="sidebar-header">
+          Results
+          <span class="count" id="resultsCount">0</span>
+        </div>
+        <div id="resultsList">
+          <div style="padding:20px 14px;text-align:center">
+            <div style="font-size:22px;opacity:0.25;margin-bottom:6px">🔍</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text3)">No searches</div>
+          </div>
+        </div>
+
+        <!-- RELATED QUERIES -->
+        <div id="relatedSection" style="display:none">
+          <div class="sidebar-header">Related searches</div>
+          <div class="related-queries" id="relatedQueries"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="search-main">
+
+      <div class="action-bar" id="actionBar" style="display:none">
+        <span class="action-bar-title">Actions</span>
+        <button class="btn btn-green" onclick="enrichResult()" id="enrichBtn">✨ Enrich</button>
+        <button class="btn btn-blue" onclick="analyzeAll()" id="analyzeBtn">🧠 Overall Analysis</button>
+        <button class="btn btn-purple" onclick="summarizeResult()" id="summarizeBtn">📝 Summarize</button>
+        <button class="btn btn-secondary" onclick="compareSelected()" id="compareBtn" style="display:none">⚖️ Compare</button>
+        <button class="btn btn-secondary" onclick="buildTimeline()" id="timelineBtn">🕐 Timeline</button>
+        <button class="btn btn-ghost" onclick="exportSearch()" id="exportBtn" style="display:none">⬇ Export</button>
+        <button class="btn btn-ghost" onclick="openInTab()">↗ Open</button>
+      </div>
+
+      <div class="content-area" id="contentArea">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">🛠️</div>
+          <div class="empty-title">Worker Research Hub</div>
+          <div class="empty-sub">Search any topic. AI filters, ranks, and enriches the best results.</div>
+        </div>
+      </div>
+
+      <div class="status-line" id="statusLine" style="display:none">
+        <div class="status-dot"></div>
+        <span id="statusText">Ready</span>
+        <span style="margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--text3)" id="latencyText"></span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========== CHAT PANEL ========== -->
+<div class="panel" id="panel-chat">
+
+  <!-- TOOLS SIDEBAR -->
+  <div class="tools-sidebar">
+    <div class="tools-group-title" style="margin-bottom:7px">Tools</div>
+    <div id="toolsList"></div>
+    <div class="tools-divider"></div>
+    <div class="add-tool-btn" onclick="openModal('customtool')">＋ Create tool</div>
+  </div>
+
+  <!-- CHAT MAIN -->
+  <div class="chat-main">
+
+    <div class="chat-header">
+      <span class="chat-header-title" id="chatHeaderTitle">Free Chat</span>
+      <div class="model-pill" onclick="openModal('api')" id="modelPill">not set</div>
+      <button class="hbtn" onclick="toggleCanvas()" id="canvasToggleBtn">📄 Canvas</button>
+      <button class="hbtn" onclick="clearChat()">🗑 Clear</button>
+      <button class="hbtn" onclick="exportChat()">⬇ Export</button>
+    </div>
+
+    <div style="display:flex;flex:1;overflow:hidden">
+
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div class="active-tool-banner" id="toolBanner" style="display:none">
+          <span id="toolBannerIcon"></span>
+          <span id="toolBannerName"></span>
+          <span style="color:var(--text3)">active</span>
+          <span class="clear-tool" onclick="clearActiveTool()">✕ remove</span>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <div class="msg assistant">
+            <div class="msg-avatar">W</div>
+            <div>
+              <div class="msg-bubble">
+                Hello! I'm <strong>Worker AI</strong> 🛠️<br><br>
+                Select a tool from the sidebar, or just chat normally.<br>
+                Use <kbd style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:11px">Ctrl+K</kbd> for the command palette.<br><br>
+                <em style="color:var(--text3);font-size:12px">Configure your Groq API Key to get started →</em>
+              </div>
+              <div class="msg-meta">Worker · just now</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="chat-input-row">
+            <button class="voice-btn" onclick="toggleVoice()" id="voiceBtn" title="Voice mode">🎤</button>
+            <div class="chat-textarea-wrap">
+              <textarea id="chatInput" rows="1" placeholder="Message… (Enter to send, Shift+Enter for new line)" onkeydown="handleChatKey(event)" oninput="autoResize(this)"></textarea>
+            </div>
+            <button class="chat-send-btn" onclick="sendChat()" id="chatSendBtn">➤</button>
+          </div>
+          <div class="chat-hints" id="chatHints"></div>
+        </div>
+      </div>
+
+      <!-- CANVAS PANEL -->
+      <div class="canvas-panel" id="canvasPanel">
+        <div class="canvas-header">
+          <span class="canvas-title">📄 Canvas</span>
+          <span class="canvas-close" onclick="toggleCanvas()">✕</span>
+        </div>
+        <div id="canvasContent" contenteditable="true" style="outline:none"></div>
+        <div class="canvas-actions">
+          <button class="btn btn-ghost" onclick="clearCanvas()" style="font-size:9px;padding:5px 10px">🗑 Clear</button>
+          <button class="btn btn-green" onclick="copyCanvas()" style="font-size:9px;padding:5px 10px">📋 Copy</button>
+          <button class="btn btn-blue" onclick="exportCanvasFile()" style="font-size:9px;padding:5px 10px">⬇ .md</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end chat panel -->
+
+<div class="panel" id="panel-productivity" style="display:none">
+
+  <div class="prod-nav">
+    <div class="prod-nav-title">Productivity</div>
+    <div class="prod-nav-item active" id="pnav-calendar" onclick="switchProd('calendar')">
+      <span class="prod-nav-icon">📅</span> Calendar
+    </div>
+    <div class="prod-nav-item" id="pnav-tasks" onclick="switchProd('tasks')">
+      <span class="prod-nav-icon">✅</span> Tasks
+    </div>
+    <div class="prod-nav-divider"></div>
+    <div class="prod-nav-item" id="pnav-email" onclick="switchProd('email')">
+      <span class="prod-nav-icon">📧</span> Email Master
+    </div>
+    <div class="prod-nav-item" id="pnav-meeting" onclick="switchProd('meeting')">
+      <span class="prod-nav-icon">🤝</span> Meeting Planner
+    </div>
+    <div class="prod-nav-item" id="pnav-docreview" onclick="switchProd('docreview')">
+      <span class="prod-nav-icon">📄</span> Doc Reviewer
+    </div>
+  </div>
+
+  <div class="prod-main">
+
+    <!-- ---- CALENDAR ---- -->
+    <div id="ppanel-calendar" class="prod-content">
+      <div class="cal-wrap">
+        <div class="cal-sidebar">
+          <div class="cal-mini">
+            <div class="cal-mini-header">
+              <button class="cal-nav-btn" onclick="calNav(-1)">‹</button>
+              <span class="cal-mini-title" id="calMiniTitle"></span>
+              <button class="cal-nav-btn" onclick="calNav(1)">›</button>
+            </div>
+            <div class="cal-grid" id="calMiniDows"></div>
+            <div class="cal-grid" id="calMiniGrid"></div>
+          </div>
+          <div class="cal-events-list" id="calEventsList">
+            <div class="cal-events-title">Today's Events</div>
+          </div>
+          <div style="padding:10px 10px 6px">
+            <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="openNewEventModal()">＋ New Event</button>
+          </div>
+        </div>
+
+        <div class="cal-big">
+          <div class="cal-big-header">
+            <button class="cal-nav-btn" onclick="calNav(-1)">‹</button>
+            <span class="cal-big-title" id="calBigTitle"></span>
+            <button class="cal-nav-btn" onclick="calNav(1)">›</button>
+            <div class="cal-view-tabs">
+              <div class="cal-view-tab active" id="cvt-month" onclick="setCalView('month')">Month</div>
+              <div class="cal-view-tab" id="cvt-week" onclick="setCalView('week')">Week</div>
+            </div>
+            <button class="btn btn-ghost" style="font-size:9px;padding:4px 10px" onclick="calToday()">Today</button>
+          </div>
+          <div class="cal-main-grid" id="calMainGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- TASKS ---- -->
+    <div id="ppanel-tasks" class="prod-content" style="display:none">
+      <div class="task-panel">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <div style="font-family:var(--sans);font-size:16px;font-weight:700">✅ Tasks</div>
+          <button class="btn btn-purple" onclick="aiDecomposeTask()" id="decomposeBtn" style="margin-left:auto">🧠 AI Decompose</button>
+          <button class="btn btn-ghost" onclick="clearDoneTasks()" style="font-size:9px">🗑 Clear Done</button>
+        </div>
+        <div class="task-input-row">
+          <select class="task-input" id="taskPriority" style="flex:0 0 110px;cursor:pointer">
+            <option value="high">🔴 High</option>
+            <option value="mid" selected>🟡 Medium</option>
+            <option value="low">🟢 Low</option>
+          </select>
+          <input class="task-input" id="taskInput" placeholder="New task… (Enter to add)" onkeydown="if(event.key==='Enter')addTask()">
+          <input type="date" class="task-input" id="taskDate" style="flex:0 0 140px">
+          <button class="btn btn-primary" onclick="addTask()">＋ Add</button>
+        </div>
+        <div id="decomposeInputArea" style="display:none;margin-bottom:14px">
+          <textarea class="task-input" id="decomposeGoal" placeholder="Describe the goal you want to break down into smaller tasks…" rows="2" style="width:100%;resize:none;margin-bottom:8px"></textarea>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-purple" onclick="runDecompose()">⚡ Decompose with AI</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('decomposeInputArea').style.display='none'">Cancel</button>
+          </div>
+        </div>
+        <div id="taskList"></div>
+      </div>
+    </div>
+
+    <!-- ---- EMAIL ---- -->
+    <div id="ppanel-email" class="prod-content" style="display:none">
+      <div class="email-panel">
+        <div style="font-family:var(--sans);font-size:16px;font-weight:700;margin-bottom:4px">📧 Email Master</div>
+        <div class="email-mode-tabs">
+          <div class="email-mode-tab active" id="etab-write" onclick="setEmailMode('write')">✏️ Write</div>
+          <div class="email-mode-tab" id="etab-reply" onclick="setEmailMode('reply')">↩️ Reply</div>
+          <div class="email-mode-tab" id="etab-improve" onclick="setEmailMode('improve')">✨ Improve</div>
+        </div>
+
+        <div id="email-form-write" class="email-form">
+          <div><div class="email-label">Subject / Goal</div><input class="email-input" id="ew-subject" placeholder="Ex: Partnership proposal with company X"></div>
+          <div><div class="email-label">Context</div><textarea class="email-input email-textarea" id="ew-context" placeholder="Describe what you want to communicate, to whom, and any important details…"></textarea></div>
+          <div><div class="email-label">Tone</div><div class="tone-chips" id="ew-tones">
+            <div class="tone-chip active" onclick="setTone('write','formal')">Formal</div>
+            <div class="tone-chip" onclick="setTone('write','casual')">Casual</div>
+            <div class="tone-chip" onclick="setTone('write','direct')">Direct</div>
+            <div class="tone-chip" onclick="setTone('write','diplomatic')">Diplomatic</div>
+            <div class="tone-chip" onclick="setTone('write','persuasive')">Persuasive</div>
+            <div class="tone-chip" onclick="setTone('write','empathetic')">Empathetic</div>
+          </div></div>
+          <button class="btn btn-blue" onclick="generateEmail('write')" id="emailWriteBtn">⚡ Generate Email</button>
+        </div>
+
+        <div id="email-form-reply" class="email-form" style="display:none">
+          <div><div class="email-label">Received Email (paste here)</div><textarea class="email-input email-textarea" id="er-original" placeholder="Paste the email you received and want to reply to…" style="min-height:120px"></textarea></div>
+          <div><div class="email-label">Your Reply Intention</div><textarea class="email-input email-textarea" id="er-intent" placeholder="Ex: Accept the proposal, ask for more time, decline politely…"></textarea></div>
+          <div><div class="email-label">Tone</div><div class="tone-chips" id="er-tones">
+            <div class="tone-chip active" onclick="setTone('reply','formal')">Formal</div>
+            <div class="tone-chip" onclick="setTone('reply','casual')">Casual</div>
+            <div class="tone-chip" onclick="setTone('reply','direct')">Direct</div>
+            <div class="tone-chip" onclick="setTone('reply','diplomatic')">Diplomatic</div>
+            <div class="tone-chip" onclick="setTone('reply','empathetic')">Empathetic</div>
+          </div></div>
+          <button class="btn btn-blue" onclick="generateEmail('reply')" id="emailReplyBtn">↩️ Generate Reply</button>
+        </div>
+
+        <div id="email-form-improve" class="email-form" style="display:none">
+          <div><div class="email-label">Your Current Email</div><textarea class="email-input email-textarea" id="ei-original" placeholder="Paste the email you want to improve…" style="min-height:120px"></textarea></div>
+          <div><div class="email-label">What to Improve</div><input class="email-input" id="ei-focus" placeholder="Ex: More concise, more professional tone, stronger CTA…"></div>
+          <div><div class="email-label">Desired Tone</div><div class="tone-chips" id="ei-tones">
+            <div class="tone-chip active" onclick="setTone('improve','formal')">Formal</div>
+            <div class="tone-chip" onclick="setTone('improve','casual')">Casual</div>
+            <div class="tone-chip" onclick="setTone('improve','direct')">Direct</div>
+            <div class="tone-chip" onclick="setTone('improve','persuasive')">Persuasive</div>
+            <div class="tone-chip" onclick="setTone('improve','empathetic')">Empathetic</div>
+          </div></div>
+          <button class="btn btn-blue" onclick="generateEmail('improve')" id="emailImproveBtn">✨ Improve Email</button>
+        </div>
+
+        <div id="emailResult" style="display:none">
+          <div class="email-result">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-family:var(--mono);font-size:9px;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px">📧 Result</span>
+              <button class="btn btn-ghost" onclick="copyToClipboard(document.getElementById('emailResultText').textContent);toast('Email copied!')" style="font-size:9px;padding:3px 8px;margin-left:auto">📋 Copy</button>
+              <button class="btn btn-ghost" onclick="regenerateEmail()" style="font-size:9px;padding:3px 8px">🔄 Regenerate</button>
+            </div>
+            <div class="email-result-text" id="emailResultText"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- MEETING ---- -->
+    <div id="ppanel-meeting" class="prod-content" style="display:none">
+      <div class="meeting-panel">
+        <div style="font-family:var(--sans);font-size:16px;font-weight:700;margin-bottom:4px">🤝 Meeting Planner</div>
+        <div class="meeting-form">
+          <div><div class="email-label">Meeting Title</div><input class="email-input" id="mtg-title" placeholder="Ex: Project Alpha Kickoff"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div><div class="email-label">Date</div><input type="date" class="email-input" id="mtg-date"></div>
+            <div><div class="email-label">Time</div><input type="time" class="email-input" id="mtg-time" value="09:00"></div>
+            <div><div class="email-label">Duration</div>
+              <select class="email-input" id="mtg-duration" style="cursor:pointer">
+                <option>30 min</option><option selected>1 hour</option><option>1h30</option><option>2 hours</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div class="email-label">Participants</div>
+            <div style="display:flex;gap:6px;margin-bottom:6px">
+              <input class="email-input" id="mtg-participant" placeholder="Name or email" onkeydown="if(event.key==='Enter'){addParticipant();event.preventDefault()}">
+              <button class="btn btn-ghost" onclick="addParticipant()">＋</button>
+            </div>
+            <div class="meeting-participants" id="mtgParticipants"></div>
+          </div>
+          <div><div class="email-label">Agenda / Goal</div><textarea class="email-input email-textarea" id="mtg-agenda" placeholder="Describe the meeting goal and topics…"></textarea></div>
+          <div><div class="email-label">Output Type</div>
+            <div class="tone-chips">
+              <div class="tone-chip active" id="mout-agenda" onclick="setMtgOutput('agenda')">📋 Agenda</div>
+              <div class="tone-chip" id="mout-ata" onclick="setMtgOutput('ata')">📝 Minutes Template</div>
+              <div class="tone-chip" id="mout-followup" onclick="setMtgOutput('followup')">📨 Follow-up</div>
+              <div class="tone-chip" id="mout-invite" onclick="setMtgOutput('invite')">✉️ Invite</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="generateMeeting()" id="mtgGenBtn">⚡ Generate</button>
+            <button class="btn btn-green" onclick="saveMeetingToCalendar()" id="mtgSaveBtn">📅 Save to Calendar</button>
+          </div>
+        </div>
+        <div id="meetingResult" style="display:none;margin-top:4px">
+          <div class="email-result" style="--before-color:var(--green)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-family:var(--mono);font-size:9px;color:var(--green);text-transform:uppercase;letter-spacing:0.5px">🤝 Result</span>
+              <button class="btn btn-ghost" onclick="copyToClipboard(document.getElementById('meetingResultText').textContent);toast('Copied!')" style="font-size:9px;padding:3px 8px;margin-left:auto">📋 Copy</button>
+            </div>
+            <div class="email-result-text" id="meetingResultText"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- DOC REVIEW ---- -->
+    <div id="ppanel-docreview" class="prod-content" style="display:none">
+      <div class="doc-panel">
+        <div style="font-family:var(--sans);font-size:16px;font-weight:700;margin-bottom:4px">📄 Doc Reviewer</div>
+        <div><div class="email-label">Analysis Type</div>
+          <div class="tone-chips" style="margin-bottom:10px">
+            <div class="tone-chip active" id="dtype-geral" onclick="setDocType('geral')">General</div>
+            <div class="tone-chip" id="dtype-juridico" onclick="setDocType('juridico')">Legal</div>
+            <div class="tone-chip" id="dtype-tecnico" onclick="setDocType('tecnico')">Technical</div>
+            <div class="tone-chip" id="dtype-contrato" onclick="setDocType('contrato')">Contract</div>
+            <div class="tone-chip" id="dtype-relatorio" onclick="setDocType('relatorio')">Report</div>
+            <div class="tone-chip" id="dtype-academico" onclick="setDocType('academico')">Academic</div>
+          </div>
+        </div>
+        <div class="doc-drop" id="docDrop" onclick="document.getElementById('docFileInput').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDocDrop(event)">
+          <div class="doc-drop-icon">📂</div>
+          <div class="doc-drop-text">Drag a <strong>.txt</strong> file or <strong>click to select</strong></div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px">or paste the text below</div>
+        </div>
+        <input type="file" id="docFileInput" accept=".txt,.md" style="display:none" onchange="handleDocFile(event)">
+        <textarea class="email-input email-textarea" id="docText" placeholder="Paste the document here…" style="min-height:140px"></textarea>
+        <button class="btn btn-blue" onclick="reviewDoc()" id="docReviewBtn">🔍 Analyze Document</button>
+        <div id="docReviewResult" style="display:none" class="doc-review-result"></div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- end productivity panel -->
+</div><!-- .app -->
+<div id="notifPanel" class="notif-badge">
+  <div class="notif-header">
+    <span>🔔 Notifications</span>
+    <span class="notif-header-title" id="notifCount"></span>
+    <span class="notif-close" onclick="toggleNotifPanel()">✕</span>
+  </div>
+  <div id="notifList"></div>
+</div>
+
+<!-- ===== API KEY MODAL ===== -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBox">
+    <!-- content injected by JS -->
+  </div>
+</div>
+
+<!-- ===== COMMAND BAR ===== -->
+<div id="cmdOverlay" onclick="if(event.target===this)closeCmd()">
+  <div class="cmd-box">
+    <div class="cmd-input-row">
+      <span class="cmd-icon">⌘</span>
+      <input id="cmdInput" placeholder="Search commands, tools, history…" oninput="renderCmdResults()" onkeydown="handleCmdKey(event)" autocomplete="off">
+      <span class="cmd-shortcut">ESC to close</span>
+    </div>
+    <div class="cmd-results" id="cmdResults"></div>
+    <div class="cmd-footer">
+      <span>↑↓ Navigate</span>
+      <span>↵ Execute</span>
+      <span>ESC Close</span>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

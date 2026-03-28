@@ -1,0 +1,23 @@
+# ── Secrets ─────────────────────────────────
+backend/.env
+*.env
+!backend/.env.example
+
+# ── Python ───────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# ── Node (caso use no futuro) ─────────────────
+node_modules/
+
+# ── Sistema ──────────────────────────────────
+.DS_Store
+Thumbs.db
