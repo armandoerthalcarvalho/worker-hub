@@ -89,6 +89,10 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
+    # CORS preflight (OPTIONS) deve passar direto para o CORSMiddleware responder
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
     # Health check é público
     if request.url.path == "/api/health":
         return await call_next(request)
