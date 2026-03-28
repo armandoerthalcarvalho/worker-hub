@@ -149,6 +149,11 @@ class SearchResult(BaseModel):
 # ---------------------------------------------------------------------------
 @app.get("/api/health")
 async def health():
+    def _mask(key: str) -> str:
+        if not key:
+            return "(empty)"
+        return key[:8] + "..." + key[-4:] + f" (len={len(key)})"
+
     return {
         "status": "ok",
         "groq": bool(GROQ_API_KEY),
@@ -156,6 +161,8 @@ async def health():
         "token_set": bool(WORKER_TOKEN),
         "groq_model": GROQ_MODEL,
         "sambanova_model": SAMBANOVA_MODEL,
+        "sambanova_key_preview": _mask(SAMBANOVA_API_KEY),
+        "groq_key_preview": _mask(GROQ_API_KEY),
     }
 
 
@@ -239,10 +246,14 @@ async def chat(request: ChatRequest):
                 log.info("deep | SambaNova OK")
                 return result
             except httpx.HTTPStatusError as e:
+                body = e.response.text[:300]
                 if e.response.status_code == 429:
                     log.warning("SambaNova 429 — fallback para Groq")
+                elif e.response.status_code == 401:
+                    log.error("SambaNova 401 UNAUTHORIZED — key prefix: %s, len: %d, body: %s",
+                              SAMBANOVA_API_KEY[:8] if SAMBANOVA_API_KEY else '(empty)',
+                              len(SAMBANOVA_API_KEY), body)
                 else:
-                    body = e.response.text[:200]
                     log.error("SambaNova erro %s: %s", e.response.status_code, body)
                 # Qualquer erro SambaNova → fallback para Groq
             except httpx.TimeoutException:
