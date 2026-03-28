@@ -39,7 +39,7 @@ GROQ_BASE_URL      = "https://api.groq.com/openai/v1"
 SAMBANOVA_BASE_URL = "https://api.sambanova.ai/v1"
 
 GROQ_MODEL         = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-SAMBANOVA_MODEL    = os.environ.get("SAMBANOVA_MODEL", "Meta-Llama-3.1-405B-Instruct")
+SAMBANOVA_MODEL    = os.environ.get("SAMBANOVA_MODEL", "DeepSeek-V3-0324")
 
 # Timeout agressivo: SambaNova pode ser mais lento em inferência
 REQUEST_TIMEOUT    = 60.0
