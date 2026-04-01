@@ -113,16 +113,24 @@ async def auth_middleware(request: Request, call_next):
     # Rotas protegidas: exigem X-Worker-Token
     if request.url.path.startswith("/api/"):
         token = request.headers.get("X-Worker-Token", "")
+        # Determine correct CORS origin for error responses (auth_middleware runs
+        # before CORSMiddleware, so we must add the header ourselves on early exits)
+        request_origin = request.headers.get("origin", "")
+        cors_origin = request_origin if ALLOWED_ORIGIN == "*" else ALLOWED_ORIGIN
+        cors_headers = {"Access-Control-Allow-Origin": cors_origin} if cors_origin else {}
+
         if not WORKER_TOKEN:
             log.warning("WORKER_TOKEN não configurado — acesso bloqueado")
             return JSONResponse(
                 {"error": "Backend não configurado"},
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                headers=cors_headers,
             )
         if token != WORKER_TOKEN:
             return JSONResponse(
                 {"error": "Não autorizado"},
-                status_code=status.HTTP_401_UNAUTHORIZED
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                headers=cors_headers,
             )
 
     return await call_next(request)
