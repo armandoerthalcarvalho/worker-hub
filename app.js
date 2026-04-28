@@ -1,7 +1,7 @@
 ﻿// ==========================================
 // STATE
 // ==========================================
-var BACKEND_URL   = 'https://worker-hub-production.up.railway.app';
+var BACKEND_URL   = 'https://worker-hub.onrender.com/';
 var BACKEND_TOKEN = 'c05f9c836aaee26e799a846e15734f90889ca03b8ad';
 var workerToken   = localStorage.getItem('worker_token') || BACKEND_TOKEN;
 var backendUrl    = localStorage.getItem('worker_backend_url') || BACKEND_URL;
