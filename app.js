@@ -64,10 +64,12 @@ async function workerChat(messages, system, temp, max, tier) {
 
   // Notify user when SambaNova fell back to Groq
   if (data.fallback) {
-    toast('⚡ Fallback to Groq (SambaNova limit reached)', '⚠️');
+    var reason = data.fallback_reason || 'unknown reason';
+    console.warn('[WorkerHub] SambaNova fallback →', reason);
+    toast('⚡ Fallback to Groq — ' + reason, '⚠️');
   }
 
-  return { content: data.content, provider: data.provider, model: data.model, fallback: !!data.fallback };
+  return { content: data.content, provider: data.provider, model: data.model, fallback: !!data.fallback, fallback_reason: data.fallback_reason || null };
 }
 
 // Convenience wrapper — returns just the text string (backward-compat with callers)
