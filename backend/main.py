@@ -39,7 +39,7 @@ GROQ_BASE_URL      = "https://api.groq.com/openai/v1"
 SAMBANOVA_BASE_URL = "https://api.sambanova.ai/v1"
 
 GROQ_MODEL         = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-SAMBANOVA_MODEL    = os.environ.get("SAMBANOVA_MODEL", "deepseek-ai/DeepSeek-V3-0324")
+SAMBANOVA_MODEL    = os.environ.get("SAMBANOVA_MODEL", "DeepSeek-V3-0324")
 
 # Timeout agressivo: SambaNova pode ser mais lento em inferência
 REQUEST_TIMEOUT    = 60.0
@@ -259,7 +259,9 @@ async def _call_sambanova(request: ChatRequest) -> dict:
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     if request.tier == "deep":
+        fallback_reason: str = ""
         if not SAMBANOVA_API_KEY:
+            fallback_reason = "SAMBANOVA_API_KEY not set"
             log.warning("SAMBANOVA_API_KEY ausente — usando Groq como deep")
         else:
             try:
@@ -269,17 +271,21 @@ async def chat(request: ChatRequest):
             except httpx.HTTPStatusError as e:
                 body = e.response.text[:300]
                 if e.response.status_code == 429:
+                    fallback_reason = "SambaNova 429 rate-limit"
                     log.warning("SambaNova 429 — fallback para Groq")
                 elif e.response.status_code == 401:
+                    fallback_reason = f"SambaNova 401 UNAUTHORIZED (key prefix: {SAMBANOVA_API_KEY[:8] if SAMBANOVA_API_KEY else '(empty)'}, len={len(SAMBANOVA_API_KEY)})"
                     log.error("SambaNova 401 UNAUTHORIZED — key prefix: %s, len: %d, body: %s",
                               SAMBANOVA_API_KEY[:8] if SAMBANOVA_API_KEY else '(empty)',
                               len(SAMBANOVA_API_KEY), body)
                 else:
+                    fallback_reason = f"SambaNova HTTP {e.response.status_code}: {body}"
                     log.error("SambaNova erro %s: %s", e.response.status_code, body)
-                # Qualquer erro SambaNova → fallback para Groq
             except httpx.TimeoutException:
+                fallback_reason = f"SambaNova timeout (>{REQUEST_TIMEOUT}s)"
                 log.warning("SambaNova timeout — fallback para Groq")
             except Exception as exc:
+                fallback_reason = f"SambaNova unexpected error: {exc}"
                 log.error("SambaNova inesperado: %s", exc)
 
         # Fallback: Groq, marca explicitamente
@@ -288,7 +294,8 @@ async def chat(request: ChatRequest):
         try:
             result = await _call_groq(request)
             result["fallback"] = True
-            log.info("deep | Groq fallback OK")
+            result["fallback_reason"] = fallback_reason
+            log.info("deep | Groq fallback OK — reason: %s", fallback_reason)
             return result
         except httpx.HTTPStatusError as e:
             body = e.response.text[:200]
